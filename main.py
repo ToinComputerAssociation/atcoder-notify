@@ -1,56 +1,49 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-#from selenium.webdriver.chrome.service import Service
-import time
-import asyncio
-
-async  def send_vcon_standings(vcon_id):
-    #ブラウザのウィンドウを表すオブジェクト"driver"を作成
-    options = Options()
-    options.add_argument('--blink-settings=imagesEnabled=false')
-    options.add_argument('--headless')
-    driver = webdriver.Chrome(options=options)
-
-    #サイトにアクセス
-    url = f'https://kenkoooo.com/atcoder/#/contest/show/{vcon_id}?activeTab=Standings'
-    driver.get(url)
-    await asyncio.sleep(1)
-
-    #レートを表示
-    driver.find_element(By.XPATH, '//*[@id="root"]/div/div[2]/div[6]/div[1]/div/form/div/div[2]/label').click()
-    await asyncio.sleep(1)
-
-    #ウィンドウの大きさを変更
-    w = driver.execute_script('return document.body.scrollWidth')
-    #h = driver.execute_script('return document.body.scrollHeight')
-    adjustment = 20 #幅微調整 
-    driver.set_window_size(w + adjustment, 6400)
-
-    #順位表を取得
-    standings = driver.find_element(By.XPATH, '//*[@id="root"]/div/div[2]/div[6]/div[2]/div/table[1]')
-    # 範囲を指定してスクリーンショットを撮る
-    png = standings.screenshot_as_png
-    # ファイルに保存
-    with open('image/screenshot.png', 'wb') as f:
-        f.write(png)
-
-    #ユーザー名、パフォーマンスを取得
-    results = {}
-    #表の全てのデータを取得
-    trs = standings.find_elements(By.TAG_NAME, 'tr')
-    #最初、最後の行は無視
-    for i in range(1, len(trs) - 1):
-        ths = trs[i].find_elements(By.TAG_NAME, "th")
-        tds = trs[i].find_elements(By.TAG_NAME, "td")
-        results[ths[1].text] = tds[-1].text;
-    
-    print(results)
-        
+import traceback
+import discord
+from discord.ext import commands
+import os
+import dotenv
 
 
-    driver.quit()
-    
+# cwdをこのファイルがある場所に移動
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-asyncio.run(send_vcon_standings('95367c13-2f9e-4d21-a0b8-46259db6aa94'))
 
+dotenv.load_dotenv()
+
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(
+    intents=intents, command_prefix="notify.",
+    allowed_mentions=discord.AllowedMentions.none()
+)
+
+
+bot.owner_ids = [866659388122202162]  # あとで消す
+
+
+@bot.event
+async def on_ready():
+    await bot.load_extension("jishaku")
+    for name in os.listdir("./cogs"):
+        if not name.startswith((".", "_")):
+            try:
+                await bot.load_extension("cogs."+name.replace(".py", ""))
+            except Exception as e:
+                print("".join(traceback.format_exception(e)))
+    await bot.tree.sync()
+    print("[log] Just ready for NotifyBot")
+
+
+@bot.tree.error
+async def on_error(interaction, error):
+    await discord.app_commands.CommandTree.on_error(bot.tree, interaction, error)
+    err = "".join(traceback.format_exception(error))
+    embed = discord.Embed(description=f"```py\n{err}\n```"[:4095])
+    if interaction.response.is_done():
+        await interaction.channel.send("An error has occurred.", embed=embed)
+    else:
+        await interaction.response.send_message("An error has occurred.", embed=embed)
+
+
+bot.run(token=os.getenv("NOTIFY_BOT_TOKEN"))
