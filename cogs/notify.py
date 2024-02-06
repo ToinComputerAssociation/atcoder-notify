@@ -35,6 +35,7 @@ class Notify(commands.Cog):
             response = await session.get(vcon_url)
             jsonData = await response.json()
             endtime = jsonData["info"]["start_epoch_second"] + jsonData["info"]["duration_second"]
+            print(endtime)
             self.schedule.add((endtime, vcon_id))
 
 
@@ -86,7 +87,6 @@ class Notify(commands.Cog):
             tds = trs[i].find_elements(By.TAG_NAME, "td")
             results[ths[1].text] = tds[-1].text
 
-        print(results)
         await channel.send(file=discord.File("image/screenshot.png"))
         driver.quit()
 
