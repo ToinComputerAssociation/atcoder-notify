@@ -1,1 +1,1 @@
-NOTIFY_BOT_TOKEN
+cogs
