@@ -3,23 +3,44 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import time
 import asyncio
+import aiohttp
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 import os
 from traceback import format_exception as fmt_exc
-
+import datetime
 
 class Notify(commands.Cog):
+    schedule = set()
+    NOTICE_CHANNEL_ID = 911924965501206581
+
     def __init__(self, bot):
         self.bot = bot
 
+    @tasks.loop(seconds=1)
+    async def vcon_standings(self):
+        next = next(iter(self.schedule))
+        print(next[0])
+        if next[0] <= time.time():
+            self.schedule.remove(next)
+            await self.send_vcon_standings(next[1])
+
+    
     @commands.hybrid_command(description="バーチャルコンテストの結果を表示します。")
     @app_commands.describe(vcon_id="バーチャルコンテストのID")
-    async def send_vcon_standings(self, ctx: commands.Context, vcon_id: str):
+    async def push_vcon_standings(self, ctx: commands.Context, vcon_id: str):
+        vcon_url = f'https://kenkoooo.com/atcoder/internal-api/contest/get/{vcon_id}'
+        async with aiohttp.ClientSession(loop=self.bot.loop) as session:
+            response = await session.get(vcon_url)
+            jsonData = await response.json()
+            endtime = jsonData["info"]["start_epoch_second"] + jsonData["info"]["duration_second"]
+            self.schedule.add((endtime, vcon_id))
+
+
+    async def send_vcon_standings(self, vcon_id: str):
         # ブラウザのウィンドウを表すオブジェクト"driver"を作成
-        await ctx.reply("結果")
-        channel = ctx.channel
+        channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
         options = Options()
         options.add_argument("--blink-settings=imagesEnabled=false")
         options.add_argument("--headless")
