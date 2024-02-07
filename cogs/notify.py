@@ -100,6 +100,15 @@ class Notify(commands.Cog):
         endtime = vcon["info"]["start_epoch_second"] + vcon["info"]["duration_second"]
         await ctx.reply(f'予定に「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」を追加しました。')
         heapq.heappush(self.schedule, (endtime, vcon))
+        
+    @commands.hybrid_command(description="朝練にratedで参加します")
+    @app_commands.describe(user_id="AtCoderのユーザーID")
+    async def register(self, ctx: commands.Context, user_id: str):
+        if user_id in self.users:
+            return await ctx.reply("このAtCoderユーザーは登録済みです。")
+
+        self.users[user_id] = {"discord_id": ctx.author.id, "rating": 0,  "join_count" : 0, "histories" : []}
+        await ctx.reply("登録しました。")
 
     async def send_vcon_standings(self, vcon : dict):
         # ブラウザのウィンドウを表すオブジェクト"driver"を作成
@@ -164,15 +173,6 @@ class Notify(commands.Cog):
             await channel.send(f"{user_id}のレート:{new_rating}")
             self.users[user_id]["rating"] = new_rating
             self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "old_rating" : old_rating, "new_rating" : new_rating})
-
-    @commands.hybrid_command(description="朝練にratedで参加します")
-    @app_commands.describe(user_id="AtCoderのユーザーID")
-    async def register(self, ctx: commands.Context, user_id: str):
-        if user_id in self.users:
-            return await ctx.reply("このAtCoderユーザーは登録済みです。")
-
-        self.users[user_id] = {"discord_id": ctx.author.id, "rating": 0,  "join_count" : 0, "histories" : []}
-        await ctx.reply("登録しました。")
 
     @commands.Cog.listener()
     async def on_interaction(self, inter:discord.Interaction):
