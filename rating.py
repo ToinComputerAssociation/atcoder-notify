@@ -17,5 +17,4 @@ def calc(oldrating : float, joincount : int, performance):
     newrating = 800.0 * math.log2((pow(2.0, oldrating / 800.0) * p * 0.9 + pow(2.0, performance / 800.0) * 0.9) / (p * 0.9 + 0.9)) - ((math.sqrt(1.0 - (x * 0.9) * (x * 0.9)) / (1.0 - (x * 0.9))) - 1) / (math.sqrt(19.0) - 1) * 1200
     if newrating <= 400:
         newrating = 400.0 / pow(math.e, (400.0 - newrating) / 400.0)
-    newrating = newrating
     return newrating
