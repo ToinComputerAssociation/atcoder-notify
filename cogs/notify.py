@@ -165,7 +165,7 @@ class Notify(commands.Cog):
             self.users[user_id]["rating"] = new_rating
             self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "old_rating" : old_rating, "new_rating" : new_rating})
 
-    @commands.hybrid_command(aliases=["re"], description="朝練にratedで参加します")
+    @commands.hybrid_command(description="朝練にratedで参加します")
     @app_commands.describe(user_id="AtCoderのユーザーID")
     async def register(self, ctx: commands.Context, user_id: str):
         if user_id in self.users:
