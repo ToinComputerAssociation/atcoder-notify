@@ -151,10 +151,10 @@ class Notify(commands.Cog):
         driver.quit()
 
         if rated_vcon in vcon["info"]["title"] and not vcon in self.vcons:
-            self.update_rating(results, vcon)
+            await self.update_rating(results, vcon)
 
             
-    def update_rating(self, results : dict, vcon : dict):
+    async def update_rating(self, results : dict, vcon : dict):
         for user_id in self.users.keys():
             self.users[user_id]["join_count"] += 1
             performance = results.get(user_id, 0)
