@@ -150,7 +150,7 @@ class Notify(commands.Cog):
         
         driver.quit()
 
-        if rated_vcon in vcon["info"]["title"] and vcon in self.vcons:
+        if rated_vcon in vcon["info"]["title"] and not vcon in self.vcons:
             self.update_rating(results, vcon)
 
             
