@@ -160,7 +160,8 @@ class Notify(commands.Cog):
             performance = results.get(user_id, 0)
             old_rating = users[user_id]["rating"]
             new_rating = rating.calc(old_rating, users[user_id]["join_count"], performance)
-            print(user_id, new_rating)
+            channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
+            await channel.send(f"{user_id}のレート:{new_rating}")
             self.users[user_id]["rating"] = new_rating
             self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "old_rating" : old_rating, "new_rating" : new_rating})
 
