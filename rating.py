@@ -1,5 +1,5 @@
 import math
-def calc(oldrating : float, joincount : int, performance):
+def calc(oldrating : float, joincount : int, performance : float):
     #joincount:今回も含めた参加回数
     p = 0.0
     x = 1.0

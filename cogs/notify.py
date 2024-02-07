@@ -13,6 +13,7 @@ import datetime
 import heapq
 from typing import TypedDict, NotRequired
 import json
+import rating
 
 class History(TypedDict):
     vcon_name : str
@@ -21,13 +22,15 @@ class History(TypedDict):
     old_rating : float
 
 class User(TypedDict):
-    rating : float
     discord_id: int
+    rating : float
+    join_count : int
     histories: list[History]
 
 
 class Notify(commands.Cog):
     schedule = []
+    vcons = []
     users : dict[str : User]
     NOTICE_CHANNEL_ID = 911924965501206581
     rated_vcon = "TCA朝練"
@@ -38,11 +41,16 @@ class Notify(commands.Cog):
 
     async def cog_load(self):
         "コグのロード時の動作"
+        with open("data/users.json", mode="r") as f:
+            self.users = json.load(f)
+        with open("data/vcons.json", mode="r") as f:
+            self.vcons = json.load(f)
         self.check_schedule.start()
 
     async def cog_unload(self):
         "コグのアンロード時の動作"
         self.check_schedule.cancel()
+        self.save_data()
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -66,6 +74,12 @@ class Notify(commands.Cog):
             await channel.send(f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果**({"{0:%Y/%m/%d %H:%M}".format(datetime.datetime.now())} 時点)', file=discord.File("image/vcon.png"), view=view)
         else:
             heapq.heappush(self.schedule, first)
+
+    def get_user_from_discord(self, discord_id: int):
+        for user_id in self.users.keys():
+            if self.users[user_id]["discord_id"] == discord_id:
+                return user_id
+        return False
 
     async def get_vcon(self, vcon_id: str):
         vcon_url = f"https://kenkoooo.com/atcoder/internal-api/contest/get/{vcon_id}"
@@ -136,6 +150,29 @@ class Notify(commands.Cog):
         
         driver.quit()
 
+        if rated_vcon in vcon["info"]["title"] and vcon in self.vcons:
+            self.update_rating(results, vcon)
+
+            
+    def update_rating(self, results : dict, vcon : dict):
+        for user_id in self.users.keys():
+            self.users[user_id]["join_count"] += 1
+            performance = results.get(user_id, 0)
+            old_rating = users[user_id]["rating"]
+            new_rating = rating.calc(old_rating, users[user_id]["join_count"], performance)
+            print(user_id, new_rating)
+            self.users[user_id]["rating"] = new_rating
+            self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "old_rating" : old_rating, "new_rating" : new_rating})
+
+    @commands.hybrid_command(aliases=["re"], description="朝練にratedで参加します")
+    @app_commands.describe(user_id="AtCoderのユーザーID")
+    async def register(self, ctx: commands.Context, user_id: str):
+        if user_id in self.users:
+            return await ctx.reply("このAtCoderユーザーは登録済みです。")
+
+        self.users[user_id] = {"discord_id": ctx.author.id, "rating": 0,  "join_count" : 0, "histories" : []}
+        await ctx.reply("登録しました。")
+
     @commands.Cog.listener()
     async def on_interaction(self, inter:discord.Interaction):
         try:
@@ -162,14 +199,20 @@ class Notify(commands.Cog):
         print("Saving Data...")
         with open("data/users.json", mode="w") as f:
             json.dump(self.users, f)
+        with open("data/vcons.json", mode="w") as f:
+            json.dump(self.vcons, f)
         # バックアップをとる。
         today = datetime.date.today()
         with open(f"data/backup/{today.strftime(r'%Y%m%d')}_users.json", mode="w") as f:
             json.dump(self.users, f)
+        with open(f"data/backup/{today.strftime(r'%Y%m%d')}_vcons.json", mode="w") as f:
+            json.dump(self.vcons, f)
         weekago = today - datetime.timedelta(days=30)
         # 30日で自動削除
         if os.path.isfile(f"data/backup/{weekago.strftime(r'%Y%m%d')}_users.json"):
             os.remove(f"data/backup/{weekago.strftime(r'%Y%m%d')}_users.json")
+        if os.path.isfile(f"data/backup/{weekago.strftime(r'%Y%m%d')}_vcons.json"):
+            os.remove(f"data/backup/{weekago.strftime(r'%Y%m%d')}_vcons.json")
 
 
 
