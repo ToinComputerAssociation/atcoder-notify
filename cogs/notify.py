@@ -30,8 +30,8 @@ class User(TypedDict):
 
 class Notify(commands.Cog):
     schedule = []
-    vcons = []
-    users : dict[str : User]
+    vcons : dict
+    users : dict[str, User]
     NOTICE_CHANNEL_ID = 911924965501206581
     rated_vcon = "TCA朝練"
 
