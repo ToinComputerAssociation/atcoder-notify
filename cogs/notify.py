@@ -11,10 +11,27 @@ import os
 from traceback import format_exception as fmt_exc
 import datetime
 import heapq
+from typing import TypedDict, NotRequired
+import json
+
+class History(TypedDict):
+    vcon_name : str
+    vcon_id_ : int
+    new_rating : float
+    old_rating : float
+
+class User(TypedDict):
+    rating : float
+    discord_id: int
+    histories: list[History]
+
 
 class Notify(commands.Cog):
     schedule = []
-    NOTICE_CHANNEL_ID = 1200215788678815834
+    users : dict[str : User]
+    NOTICE_CHANNEL_ID = 911924965501206581
+    rated_vcon = "TCA朝練"
+
     def __init__(self, bot):
         self.bot = bot
         heapq.heapify(self.schedule)
@@ -140,6 +157,20 @@ class Notify(commands.Cog):
             view = discord.ui.View()
             view.add_item(button)
             await inter.message.edit(content=f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果**({"{0:%Y/%m/%d %H:%M}".format(datetime.datetime.now())} 時点)', attachments=[discord.File("image/vcon.png")], view=view)
+
+    def save_data(self):
+        print("Saving Data...")
+        with open("data/users.json", mode="w") as f:
+            json.dump(self.users, f)
+        # バックアップをとる。
+        today = datetime.date.today()
+        with open(f"data/backup/{today.strftime(r'%Y%m%d')}_users.json", mode="w") as f:
+            json.dump(self.users, f)
+        weekago = today - datetime.timedelta(days=30)
+        # 30日で自動削除
+        if os.path.isfile(f"data/backup/{weekago.strftime(r'%Y%m%d')}_users.json"):
+            os.remove(f"data/backup/{weekago.strftime(r'%Y%m%d')}_users.json")
+
 
 
 async def setup(bot):
