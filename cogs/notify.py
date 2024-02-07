@@ -45,7 +45,7 @@ class Notify(commands.Cog):
             self.users = json.load(f)
         with open("data/vcons.json", mode="r") as f:
             self.vcons = json.load(f)
-        self.users["yaakiyu"] = {"discord_id": ctx.author.id, "rating": 0,  "join_count" : 0, "histories" : []}
+        self.users["yaakiyu"] = {"discord_id": 83271387128, "rating": 0,  "join_count" : 0, "histories" : []}
         self.check_schedule.start()
 
     async def cog_unload(self):
