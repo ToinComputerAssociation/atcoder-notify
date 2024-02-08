@@ -34,6 +34,9 @@ async def on_ready():
     await bot.tree.sync()
     print("[log] Just ready for NotifyBot")
 
+@bot.event
+async def on_error(ctx, error):
+    await ctx.send("".join(traceback.format_exception(error)))
 
 @bot.tree.error
 async def on_error(interaction, error):

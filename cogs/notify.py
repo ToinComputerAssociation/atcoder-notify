@@ -160,7 +160,7 @@ class Notify(commands.Cog):
         
         driver.quit()
 
-        if rated_vcon in vcon["info"]["title"] and not vcon in self.vcons:
+        if self.rated_vcon in vcon["info"]["title"] and not vcon in self.vcons:
             await self.update_rating(results, vcon)
 
             
@@ -168,8 +168,8 @@ class Notify(commands.Cog):
         for user_id in self.users.keys():
             self.users[user_id]["join_count"] += 1
             performance = results.get(user_id, 0)
-            old_rating = users[user_id]["rating"]
-            new_rating = rating.calc(old_rating, users[user_id]["join_count"], performance)
+            old_rating = self.users[user_id]["rating"]
+            new_rating = rating.calc(old_rating, self.users[user_id]["join_count"], performance)
             channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
             await channel.send(f"{user_id}のレート:{new_rating}")
             self.users[user_id]["rating"] = new_rating
