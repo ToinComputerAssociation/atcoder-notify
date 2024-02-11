@@ -18,6 +18,7 @@ import rating
 class History(TypedDict):
     vcon_name : str
     vcon_id_ : int
+    performance : float
     new_rating : float
     old_rating : float
 
@@ -30,9 +31,9 @@ class User(TypedDict):
 
 class Notify(commands.Cog):
     schedule = []
-    vcons : dict
+    vcons : list[dict]
     users : dict[str, User]
-    NOTICE_CHANNEL_ID = 911924965501206581
+    NOTICE_CHANNEL_ID = 1200215788678815834
     rated_vcon = "TCA朝練"
 
     def __init__(self, bot):
@@ -45,7 +46,6 @@ class Notify(commands.Cog):
             self.users = json.load(f)
         with open("data/vcons.json", mode="r") as f:
             self.vcons = json.load(f)
-        self.users["yaakiyu"] = {"discord_id": 83271387128, "rating": 0,  "join_count" : 0, "histories" : []}
         self.check_schedule.start()
 
     async def cog_unload(self):
@@ -66,7 +66,7 @@ class Notify(commands.Cog):
         first = heapq.heappop(self.schedule)
         if first[0] <= time.time():
             vcon = first[1]
-            await self.send_vcon_standings(vcon)
+            await self.get_vcon_standings(vcon["info"]["id"])
             
             channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
             button = discord.ui.Button(label="更新",style=discord.ButtonStyle.primary,custom_id=f'update_vcon_standings,{vcon["info"]["id"]}')
@@ -111,7 +111,18 @@ class Notify(commands.Cog):
         self.users[user_id] = {"discord_id": ctx.author.id, "rating": 0,  "join_count" : 0, "histories" : []}
         await ctx.reply("登録しました。")
 
-    async def send_vcon_standings(self, vcon : dict):
+    @commands.hybrid_command(description="レーティングを更新します")
+    @app_commands.describe(vcon_id="バーチャルコンテストのID")
+    async def push_button(self, ctx: commands.Context, vcon_id: str):
+        vcon = await self.get_vcon(vcon_id)
+        button_update = discord.ui.Button(label="更新",style=discord.ButtonStyle.primary,custom_id=f'update_rating,{vcon_id}')
+        button_cancel = discord.ui.Button(label="キャンセル",style=discord.ButtonStyle.primary,custom_id=f'cancel')
+        view = discord.ui.View()
+        view.add_item(button_update)
+        view.add_item(button_cancel)
+        await ctx.reply(f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果をレーティングに反映させます。\n全ての提出が順位表に反映されていることを確認してください。**', view=view)
+
+    async def get_vcon_standings(self, vcon_id : str):
         # ブラウザのウィンドウを表すオブジェクト"driver"を作成
         options = Options()
         options.add_argument("--blink-settings=imagesEnabled=false")
@@ -120,7 +131,7 @@ class Notify(commands.Cog):
 
         # サイトにアクセス
         url = (
-            f'https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]}?activeTab=Standings'
+            f'https://kenkoooo.com/atcoder/#/contest/show/{vcon_id}?activeTab=Standings'
         )
         driver.get(url)
         await asyncio.sleep(1)
@@ -147,6 +158,33 @@ class Notify(commands.Cog):
         # ファイルに保存
         with open("image/vcon.png", "wb") as f:
             f.write(png)
+        
+        driver.quit()
+
+    async def get_vcon_results(self, vcon_id : str):
+        # ブラウザのウィンドウを表すオブジェクト"driver"を作成
+        options = Options()
+        options.add_argument("--blink-settings=imagesEnabled=false")
+        options.add_argument("--headless")
+        driver = webdriver.Chrome(options=options)
+
+        # サイトにアクセス
+        url = (
+            f'https://kenkoooo.com/atcoder/#/contest/show/{vcon_id}?activeTab=Standings'
+        )
+        driver.get(url)
+        await asyncio.sleep(3)
+
+        # ウィンドウの大きさを変更
+        w = driver.execute_script("return document.body.scrollWidth")
+        # h = driver.execute_script('return document.body.scrollHeight')
+        adjustment = 20  # 幅微調整
+        driver.set_window_size(w + adjustment, 6400)
+
+        # 順位表を取得
+        standings = driver.find_element(
+            By.XPATH, '//*[@id="root"]/div/div[2]/div[6]/div[2]/div/table[1]'
+        )
 
         # ユーザー名、パフォーマンスを取得
         results = {}
@@ -156,12 +194,11 @@ class Notify(commands.Cog):
         for i in range(1, len(trs) - 1):
             ths = trs[i].find_elements(By.TAG_NAME, "th")
             tds = trs[i].find_elements(By.TAG_NAME, "td")
-            results[ths[1].text] = tds[-1].text
+            results[ths[1].text] = int(tds[-1].text)
         
         driver.quit()
 
-        if self.rated_vcon in vcon["info"]["title"] and not vcon in self.vcons:
-            await self.update_rating(results, vcon)
+        return results
 
             
     async def update_rating(self, results : dict, vcon : dict):
@@ -170,10 +207,8 @@ class Notify(commands.Cog):
             performance = results.get(user_id, 0)
             old_rating = self.users[user_id]["rating"]
             new_rating = rating.calc(old_rating, self.users[user_id]["join_count"], performance)
-            channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
-            await channel.send(f"{user_id}のレート:{new_rating}")
             self.users[user_id]["rating"] = new_rating
-            self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "old_rating" : old_rating, "new_rating" : new_rating})
+            self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "performance" : performance, "old_rating" : old_rating, "new_rating" : new_rating})
 
     @commands.Cog.listener()
     async def on_interaction(self, inter:discord.Interaction):
@@ -186,16 +221,36 @@ class Notify(commands.Cog):
             pass
 
     async def on_button_click(self, inter:discord.Interaction):
-        await inter.response.send_message("更新中...",ephemeral=True, delete_after=10)
         custom_id = inter.data["custom_id"]
         if "update_vcon_standings" in custom_id:
+            await inter.response.send_message("更新中...",ephemeral=True)
             vcon = await self.get_vcon(custom_id.split(',')[-1])
-            await self.send_vcon_standings(vcon)
+            await self.get_vcon_standings(vcon["info"]["id"])
             channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
             button = discord.ui.Button(label="更新",style=discord.ButtonStyle.primary,custom_id=f'update_vcon_standings,{vcon["info"]["id"]}')
             view = discord.ui.View()
             view.add_item(button)
             await inter.message.edit(content=f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果**({"{0:%Y/%m/%d %H:%M}".format(datetime.datetime.now())} 時点)', attachments=[discord.File("image/vcon.png")], view=view)
+            await inter.delete_original_response()
+        if "update_rating" in custom_id:
+            vcon = await self.get_vcon(custom_id.split(',')[-1])
+            if vcon in self.vcons:
+                await inter.response.send_message("このコンテストは更新済みです。", ephemeral=True)
+                return
+            await inter.response.send_message("更新中...",ephemeral=True)
+            results = await self.get_vcon_results(vcon["info"]["id"])
+            print(results)
+            await self.update_rating(results, vcon)
+            self.vcons.append(vcon)
+            await inter.delete_original_response()
+            channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
+            await channel.send("ボタンをおしました。")
+        if "cancel" == custom_id:
+            #await inter.response.defer()
+            await inter.message.delete()
+            #await inter.delete_original_response()
+            
+            
 
     def save_data(self):
         print("Saving Data...")
