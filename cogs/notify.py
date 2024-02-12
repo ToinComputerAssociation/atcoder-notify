@@ -17,7 +17,8 @@ import rating
 
 class History(TypedDict):
     vcon_name : str
-    vcon_id_ : int
+    vcon_id : int
+    end_time : int
     performance : float
     new_rating : float
     old_rating : float
@@ -30,15 +31,17 @@ class User(TypedDict):
 
 
 class Notify(commands.Cog):
-    schedule = []
+    #通知予定のバーチャルコンテスト
+    vcon_schedule = []
+    #レーティング反映済みのコンテスト
     vcons : list[dict]
+    #ユーザー情報
     users : dict[str, User]
-    NOTICE_CHANNEL_ID = 1200215788678815834
-    rated_vcon = "TCA朝練"
+    NOTICE_CHANNEL_ID = 911924965501206581
 
     def __init__(self, bot):
         self.bot = bot
-        heapq.heapify(self.schedule)
+        heapq.heapify(self.vcon_schedule)
 
     async def cog_load(self):
         "コグのロード時の動作"
@@ -55,15 +58,16 @@ class Notify(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        #TCAbotから朝練を取得
         if "今日の朝練:" in message.content:
             vcon_id = message.content.split('/')[-1]
             await self.push_vcon(vcon_id)
         
     @tasks.loop(seconds=1)
     async def check_schedule(self):
-        if len(self.schedule) == 0:
+        if len(self.vcon_schedule) == 0:
             return
-        first = heapq.heappop(self.schedule)
+        first = heapq.heappop(self.vcon_schedule)
         if first[0] <= time.time():
             vcon = first[1]
             await self.get_vcon_standings(vcon["info"]["id"])
@@ -74,7 +78,7 @@ class Notify(commands.Cog):
             view.add_item(button)
             await channel.send(f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果**({"{0:%Y/%m/%d %H:%M}".format(datetime.datetime.now())} 時点)', file=discord.File("image/vcon.png"), view=view)
         else:
-            heapq.heappush(self.schedule, first)
+            heapq.heappush(self.vcon_schedule, first)
 
     def get_user_from_discord(self, discord_id: int):
         for user_id in self.users.keys():
@@ -90,17 +94,19 @@ class Notify(commands.Cog):
             return jsonData
     
     async def push_vcon(self, vcon_id: str):
+        #予定にバーチャルコンテストを追加
         vcon = await self.get_vcon(vcon_id)
         endtime = vcon["info"]["start_epoch_second"] + vcon["info"]["duration_second"]
-        heapq.heappush(self.schedule, (endtime, vcon))
+        heapq.heappush(self.vcon_schedule, (endtime, vcon))
 
     @commands.hybrid_command(description="バーチャルコンテストの結果を表示します。")
     @app_commands.describe(vcon_id="バーチャルコンテストのID")
     async def push_vcon_hand(self, ctx: commands.Context, vcon_id: str):
+        #予定にバーチャルコンテストを追加（手動）
         vcon = await self.get_vcon(vcon_id)
         endtime = vcon["info"]["start_epoch_second"] + vcon["info"]["duration_second"]
         await ctx.reply(f'予定に「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」を追加しました。')
-        heapq.heappush(self.schedule, (endtime, vcon))
+        heapq.heappush(self.vcon_schedule, (endtime, vcon))
         
     @commands.hybrid_command(description="朝練にratedで参加します")
     @app_commands.describe(user_id="AtCoderのユーザーID")
@@ -121,6 +127,28 @@ class Notify(commands.Cog):
         view.add_item(button_update)
         view.add_item(button_cancel)
         await ctx.reply(f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果をレーティングに反映させます。\n全ての提出が順位表に反映されていることを確認してください。**', view=view)
+
+    async def send_rating_fluctuation(self, vcon_id : str):
+        messages = []
+        channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
+        vcons = [contest for contest in self.vcons if contest["info"]["id"] == vcon_id]
+        if(len(vcons) == 0):
+            await channel.send('コンテストが存在しません')
+        vcon = vcons[0]
+        messages.append(f'「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」のレーティング変動')
+        for user_id in self.users.keys():
+            for history in self.users[user_id]["histories"]:
+                if history["vcon_id"] != vcon_id:
+                    continue
+                old_rating = history["old_rating"]
+                new_rating = history["new_rating"]
+                difference = new_rating - old_rating
+                message = f"{user_id}: {old_rating} -> {new_rating}({'{:+}'.format(difference)})"
+                messages.append(message)
+        await channel.send('\n'.join(messages))
+
+        
+
 
     async def get_vcon_standings(self, vcon_id : str):
         # ブラウザのウィンドウを表すオブジェクト"driver"を作成
@@ -204,11 +232,13 @@ class Notify(commands.Cog):
     async def update_rating(self, results : dict, vcon : dict):
         for user_id in self.users.keys():
             self.users[user_id]["join_count"] += 1
+            #不参加のときのperformanceは0
             performance = results.get(user_id, 0)
             old_rating = self.users[user_id]["rating"]
             new_rating = rating.calc(old_rating, self.users[user_id]["join_count"], performance)
             self.users[user_id]["rating"] = new_rating
-            self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "performance" : performance, "old_rating" : old_rating, "new_rating" : new_rating})
+            self.users[user_id]["histories"].append({"vcon_name" : vcon["info"]["title"], "vcon_id" : vcon["info"]["id"], "endt_time" : vcon["info"]["start_epoch_second"] + vcon["info"]["duration_second"], "performance" : performance, "old_rating" : old_rating, "new_rating" : new_rating})
+
 
     @commands.Cog.listener()
     async def on_interaction(self, inter:discord.Interaction):
@@ -235,8 +265,9 @@ class Notify(commands.Cog):
         if "update_rating" in custom_id:
             vcon = await self.get_vcon(custom_id.split(',')[-1])
             if vcon in self.vcons:
-                await inter.response.send_message("このコンテストは更新済みです。", ephemeral=True)
+                await inter.response.send_message("このコンテストは反映済みです。", ephemeral=True)
                 return
+            await inter.message.delete()
             await inter.response.send_message("更新中...",ephemeral=True)
             results = await self.get_vcon_results(vcon["info"]["id"])
             print(results)
@@ -245,6 +276,7 @@ class Notify(commands.Cog):
             await inter.delete_original_response()
             channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
             await channel.send("ボタンをおしました。")
+            await self.send_rating_fluctuation(vcon["info"]["id"])
         if "cancel" == custom_id:
             #await inter.response.defer()
             await inter.message.delete()
