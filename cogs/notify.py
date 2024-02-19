@@ -76,9 +76,9 @@ class Notify(commands.Cog):
             button = discord.ui.Button(label="更新",style=discord.ButtonStyle.primary,custom_id=f'update_vcon_standings,{vcon["info"]["id"]}')
             view = discord.ui.View()
             view.add_item(button)
-            await channel.send(f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果**({"{0:%Y/%m/%d %H:%M}".format(datetime.datetime.now())} 時点)', file=discord.File("image/vcon.png"), view=view)
+            await channel.send(content=f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果**({"{0:%Y/%m/%d %H:%M}".format(datetime.datetime.now())} 時点)', file=discord.File("image/vcon.png"), view=view)
         else:
-            heapq.heappush((self.vcon_schedule, first))
+            heapq.heappush(self.vcon_schedule, first)
 
     def get_user_from_discord(self, discord_id: int):
         for user_id in self.users.keys():
