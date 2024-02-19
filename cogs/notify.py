@@ -37,7 +37,7 @@ class Notify(commands.Cog):
     vcons : list[dict]
     #ユーザー情報
     users : dict[str, User]
-    NOTICE_CHANNEL_ID = 911924965501206581
+    NOTICE_CHANNEL_ID = 120021578867881583
 
     def __init__(self, bot):
         self.bot = bot
@@ -78,7 +78,7 @@ class Notify(commands.Cog):
             view.add_item(button)
             await channel.send(f'**「[{vcon["info"]["title"]}](https://kenkoooo.com/atcoder/#/contest/show/{vcon["info"]["id"]})」の結果**({"{0:%Y/%m/%d %H:%M}".format(datetime.datetime.now())} 時点)', file=discord.File("image/vcon.png"), view=view)
         else:
-            heapq.heappush(self.vcon_schedule, first)
+            heapq.heappush((self.vcon_schedule, first))
 
     def get_user_from_discord(self, discord_id: int):
         for user_id in self.users.keys():
