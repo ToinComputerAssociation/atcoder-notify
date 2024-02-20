@@ -37,7 +37,9 @@ class Notify(commands.Cog):
     vcons : list[dict]
     #ユーザー情報
     users : dict[str, User]
-    NOTICE_CHANNEL_ID = 120021578867881583
+    NOTICE_CHANNEL_ID = 1200215788678815834
+    #testchannel
+    #NOTICE_CHANNEL_ID = 911924965501206581
 
     def __init__(self, bot):
         self.bot = bot
