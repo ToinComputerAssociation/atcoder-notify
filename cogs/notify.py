@@ -277,7 +277,7 @@ class Notify(commands.Cog):
             self.vcons.append(vcon)
             await inter.delete_original_response()
             channel = self.bot.get_channel(self.NOTICE_CHANNEL_ID)
-            await channel.send("ボタンをおしました。")
+            await channel.send("ぼたんをおしました。")
             await self.send_rating_fluctuation(vcon["info"]["id"])
         if "cancel" == custom_id:
             #await inter.response.defer()
