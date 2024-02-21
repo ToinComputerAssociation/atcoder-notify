@@ -119,6 +119,18 @@ class Notify(commands.Cog):
         self.users[user_id] = {"discord_id": ctx.author.id, "rating": 0,  "join_count" : 0, "histories" : []}
         await ctx.reply("登録しました。")
 
+    @commands.hybrid_command(description="ランキングを表示します。")
+    @app_commands.describe()
+    async def ranking(self, ctx: commands.Context):
+        ranking = []
+        for name, date in self.users.items():
+            ranking.append((date["rating"], name))
+        ranking.sort(reverse=True)
+        messages = []
+        for i, date in enumerate(ranking):
+            messages.append(f'{i + 1}位：{date[1]} rating {date[0]}')
+        await ctx.reply('\n'.join(messages))
+
     @commands.hybrid_command(description="レーティングを更新します")
     @app_commands.describe(vcon_id="バーチャルコンテストのID")
     async def push_button(self, ctx: commands.Context, vcon_id: str):
